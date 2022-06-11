@@ -5,6 +5,7 @@
 __version__ = "0.1.0"
 
 import argparse
+import filecmp
 from pathlib import Path
 import pathlib
 import os
@@ -34,8 +35,16 @@ class DupeFinder:
         for source in self.source_files:
             print(f"Comparing {str(source)}")
             for target in self.target_files:
+
+                if not target.exists():
+                    break
+
                 print(f"  with {str(target)}")
-                self.compare(source, target)
+
+                if self.compare(source, target):
+                    self.dupe_action()
+                    if self.args.one:
+                        break
 
     def check_source_paths(self, source: Path, recursive: bool=False):
         try:
@@ -60,7 +69,13 @@ class DupeFinder:
             print(e)
 
     def compare(self, file1: Path, file2: Path):
-        pass
+        if self.args.shallow:
+            return True if file1.name == file2.name else False
+
+        return filecmp.cmp(file1, file2, False)
+
+    def dupe_action(self):
+        print("    dupe found")
 
 def main():
     args = parse_args()
