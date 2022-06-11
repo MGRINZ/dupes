@@ -104,8 +104,14 @@ class DupeFinder:
         if self.args.action == DupeFinder.ACTION_LIST:
             self.dupe_files.append(dupe_file)
             print("    duplicate found")
+            return
+
         if self.args.action == DupeFinder.ACTION_MOVE:
-            new_path = self.find_new_path(dupe_file.name)
+
+            if self.args.keep_tree:
+                self.dupe_dir.joinpath(dupe_file.parent.relative_to(self.target)).mkdir(parents=True, exist_ok=True)
+
+            new_path = self.find_new_path(dupe_file)
 
             try:
                 shutil.move(dupe_file, new_path)
@@ -113,19 +119,23 @@ class DupeFinder:
             except PermissionError as e:
                 print(f"    cannot move file {str(dupe_file)} to {str(new_path)}, {e.args[1].lower()}")
 
-    def find_new_path(self, filename: str, trial: int=0):
+            return
+
+    def find_new_path(self, file_path: Path, trial: int=0):
         """Recursively find new name for duplicate file if it already exists"""
 
         if trial == 0:
-            new_filename = filename
+            new_filename = file_path.name
         else:
-            file_path = Path(filename)
             new_filename = f"{file_path.stem}_{trial}{file_path.suffix}"
 
-        new_path = self.dupe_dir.joinpath(new_filename)
+        if self.args.keep_tree:
+            new_path = self.dupe_dir.joinpath(file_path.parent.relative_to(self.target), new_filename)
+        else:
+            new_path = self.dupe_dir.joinpath(new_filename)
 
         if new_path.exists():
-            new_path = self.find_new_path(filename, trial + 1)
+            new_path = self.find_new_path(file_path, trial + 1)
         return new_path
 
 def main():
@@ -146,11 +156,14 @@ def parse_args():
     parser.add_argument("-v", "--version", action="version", version=__version__)
     parser.add_argument("source", type=Path, help="file or directory to be looked for")
     parser.add_argument("target", type=Path, help="file or directory to look for duplicates")
-    parser.add_argument("-r", "-R", "--recursive", action="store_true", help="check target and source recursively")
+    parser.add_argument("-r", "-R", "--recursive", action="store_true", help="check source and target recursively")
     parser.add_argument("-s", "--shallow", action="store_true", help="compare only file names")
     parser.add_argument("-1", "--one", action="store_true", help="assume only one possible duplicate")
-    parser.add_argument("-a", "--action", choices=[DupeFinder.ACTION_LIST, DupeFinder.ACTION_MOVE], default=DupeFinder.ACTION_LIST, help="action to perform on duplicate files")
-    parser.add_argument("--move", metavar="duplicates_dir", type=Path, help="directory to move duplicate files (forces --action move)")
+    parser.add_argument("-a", "--action", choices=[DupeFinder.ACTION_LIST, DupeFinder.ACTION_MOVE], default=DupeFinder.ACTION_LIST, help="action to perform on duplicate files (default: list)")
+
+    move_group = parser.add_argument_group("MOVE action")
+    move_group.add_argument("--move", metavar="duplicates_dir", type=Path, help="directory to move duplicate files (forces --action move)")
+    move_group.add_argument("--keep-tree", action="store_true", help="keep the same folder structure for duplicates in duplicates_dir as in the target")
 
     args = parser.parse_args()
 
