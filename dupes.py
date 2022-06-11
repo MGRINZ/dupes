@@ -30,6 +30,8 @@ class DupeFinder:
         self.args = _args
 
     def start(self):
+        """Start process of finding duplicate files"""
+
         self.source_files: 'list[Path]' = []
         self.target_files: 'list[Path]' = []
         self.dupe_files: 'list[Path]' = []
@@ -63,6 +65,8 @@ class DupeFinder:
                 print(str(dupe_file))
 
     def check_source_paths(self, source: Path, recursive: bool=False):
+        """Generate list of source files"""
+
         try:
             if source.is_dir():
                 if recursive or source == self.source: # "or" for always checking provided directory
@@ -74,6 +78,8 @@ class DupeFinder:
             print(e)
 
     def check_target_paths(self, target: Path, recursive: bool=False):
+        """Generate list of target files"""
+
         try:
             if target.is_dir():
                 if recursive or target == self.target: # "or" for always checking provided directory
@@ -85,12 +91,16 @@ class DupeFinder:
             print(e)
 
     def compare(self, file1: Path, file2: Path):
+        """Compare two files"""
+
         if self.args.shallow:
             return True if file1.name == file2.name else False
 
         return filecmp.cmp(file1, file2, False)
 
     def dupe_action(self, source_file, dupe_file):
+        """Perform user-defined action on duplicate files"""
+
         if self.args.action == DupeFinder.ACTION_LIST:
             self.dupe_files.append(dupe_file)
             print("    duplicate found")
@@ -104,6 +114,7 @@ class DupeFinder:
                 print(f"    cannot move file {str(dupe_file)} to {str(new_path)}, {e.args[1].lower()}")
 
     def find_new_path(self, filename: str, trial: int=0):
+        """Recursively find new name for duplicate file if it already exists"""
 
         if trial == 0:
             new_filename = filename
