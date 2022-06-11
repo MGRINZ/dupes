@@ -9,6 +9,7 @@ import filecmp
 from pathlib import Path
 import pathlib
 import os
+import shutil
 import sys
 
 class DupesError(Exception):
@@ -21,6 +22,7 @@ class DupeFinder:
     """Object for finding duplicate files"""
 
     ACTION_LIST = "list"
+    ACTION_MOVE = "move"
 
     def __init__(self, _args):
         self.source: Path = _args.source
@@ -32,6 +34,13 @@ class DupeFinder:
         self.target_files: 'list[Path]' = []
         self.dupe_files: 'list[Path]' = []
 
+        if self.args.action == DupeFinder.ACTION_MOVE:
+            self.dupe_dir: Path = self.args.move
+            try:
+                self.dupe_dir.mkdir(parents=True, exist_ok=True)
+            except PermissionError as e:
+                raise DupesError(f"cannot create directory for duplicates in {self.dupe_dir}, {e.args[1].lower()}")
+
         self.check_source_paths(self.source, False)
         self.check_target_paths(self.target, False)
 
@@ -40,7 +49,7 @@ class DupeFinder:
             for target in self.target_files:
 
                 if not target.exists():
-                    break
+                    continue
 
                 print(f"  with {str(target)}")
 
@@ -84,7 +93,29 @@ class DupeFinder:
     def dupe_action(self, source_file, dupe_file):
         if self.args.action == DupeFinder.ACTION_LIST:
             self.dupe_files.append(dupe_file)
-            print("    dupe found")
+            print("    duplicate found")
+        if self.args.action == DupeFinder.ACTION_MOVE:
+            new_path = self.find_new_path(dupe_file.name)
+
+            try:
+                shutil.move(dupe_file, new_path)
+                print(f"    moved duplicate to {str(new_path)}")
+            except PermissionError as e:
+                print(f"    cannot move file {str(dupe_file)} to {str(new_path)}, {e.args[1].lower()}")
+
+    def find_new_path(self, filename: str, trial: int=0):
+
+        if trial == 0:
+            new_filename = filename
+        else:
+            file_path = Path(filename)
+            new_filename = f"{file_path.stem}_{trial}{file_path.suffix}"
+
+        new_path = self.dupe_dir.joinpath(new_filename)
+
+        if new_path.exists():
+            new_path = self.find_new_path(filename, trial + 1)
+        return new_path
 
 def main():
     args = parse_args()
@@ -107,9 +138,18 @@ def parse_args():
     parser.add_argument("-r", "-R", "--recursive", action="store_true", help="check target and source recursively")
     parser.add_argument("-s", "--shallow", action="store_true", help="compare only file names")
     parser.add_argument("-1", "--one", action="store_true", help="assume only one possible duplicate")
-    parser.add_argument("-a", "--action", choices=[DupeFinder.ACTION_LIST], default=DupeFinder.ACTION_LIST, help="action to perform on duplicate files")
+    parser.add_argument("-a", "--action", choices=[DupeFinder.ACTION_LIST, DupeFinder.ACTION_MOVE], default=DupeFinder.ACTION_LIST, help="action to perform on duplicate files")
+    parser.add_argument("--move", metavar="duplicates_dir", type=Path, help="directory to move duplicate files (forces --action move)")
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.action == DupeFinder.ACTION_MOVE and args.move is None:
+        parser.error("you must specify directory for duplicates with --move duplicates_dir")
+
+    if args.move is not None:
+        args.action = DupeFinder.ACTION_MOVE
+
+    return args
 
 if __name__ == "__main__":
     try:
