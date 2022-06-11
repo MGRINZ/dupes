@@ -25,6 +25,41 @@ class DupeFinder:
         self.args = _args
 
     def start(self):
+        self.source_files: 'list[Path]' = []
+        self.target_files: 'list[Path]' = []
+
+        self.check_source_paths(self.source, False)
+        self.check_target_paths(self.target, False)
+
+        for source in self.source_files:
+            print(f"Comparing {str(source)}")
+            for target in self.target_files:
+                print(f"  with {str(target)}")
+                self.compare(source, target)
+
+    def check_source_paths(self, source: Path, recursive: bool=False):
+        try:
+            if source.is_dir():
+                if recursive or source == self.source: # "or" for always checking provided directory
+                    for path in source.iterdir():
+                        self.check_source_paths(path, self.args.recursive)
+            else:
+                self.source_files.append(source)
+        except PermissionError as e:
+            print(e)
+
+    def check_target_paths(self, target: Path, recursive: bool=False):
+        try:
+            if target.is_dir():
+                if recursive or target == self.target: # "or" for always checking provided directory
+                    for path in target.iterdir():
+                        self.check_target_paths(path, self.args.recursive)
+            else:
+                self.target_files.append(target)
+        except PermissionError as e:
+            print(e)
+
+    def compare(self, file1: Path, file2: Path):
         pass
 
 def main():
