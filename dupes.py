@@ -20,6 +20,8 @@ class DupesError(Exception):
 class DupeFinder:
     """Object for finding duplicate files"""
 
+    ACTION_LIST = "list"
+
     def __init__(self, _args):
         self.source: Path = _args.source
         self.target: Path = _args.target
@@ -28,6 +30,7 @@ class DupeFinder:
     def start(self):
         self.source_files: 'list[Path]' = []
         self.target_files: 'list[Path]' = []
+        self.dupe_files: 'list[Path]' = []
 
         self.check_source_paths(self.source, False)
         self.check_target_paths(self.target, False)
@@ -42,9 +45,13 @@ class DupeFinder:
                 print(f"  with {str(target)}")
 
                 if self.compare(source, target):
-                    self.dupe_action()
+                    self.dupe_action(source, target)
                     if self.args.one:
                         break
+
+        if self.args.action == DupeFinder.ACTION_LIST:
+            for dupe_file in self.dupe_files:
+                print(str(dupe_file))
 
     def check_source_paths(self, source: Path, recursive: bool=False):
         try:
@@ -74,8 +81,10 @@ class DupeFinder:
 
         return filecmp.cmp(file1, file2, False)
 
-    def dupe_action(self):
-        print("    dupe found")
+    def dupe_action(self, source_file, dupe_file):
+        if self.args.action == DupeFinder.ACTION_LIST:
+            self.dupe_files.append(dupe_file)
+            print("    dupe found")
 
 def main():
     args = parse_args()
@@ -98,6 +107,7 @@ def parse_args():
     parser.add_argument("-r", "-R", "--recursive", action="store_true", help="check target and source recursively")
     parser.add_argument("-s", "--shallow", action="store_true", help="compare only file names")
     parser.add_argument("-1", "--one", action="store_true", help="assume only one possible duplicate")
+    parser.add_argument("-a", "--action", choices=[DupeFinder.ACTION_LIST], default=DupeFinder.ACTION_LIST, help="action to perform on duplicate files")
 
     return parser.parse_args()
 
