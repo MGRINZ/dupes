@@ -23,6 +23,7 @@ class DupeFinder:
 
     ACTION_LIST = "list"
     ACTION_MOVE = "move"
+    ACTION_DELETE = "delete"
 
     def __init__(self, _args):
         self.source: Path = _args.source
@@ -121,6 +122,41 @@ class DupeFinder:
 
             return
 
+        if self.args.action == DupeFinder.ACTION_DELETE:
+
+            while True:
+                if self.args.no_confirm:
+                    break
+
+                print(f"Delete {str(dupe_file)}? [Y/n/a/q] ", end="")
+
+                ans = input().strip().lower()
+
+                if len(ans) == 0:
+                    ans = "y"
+
+                if ans == "y":
+                    break
+
+                if ans == "n":
+                    return
+
+                if ans == "a":
+                    self.args.no_confirm = True
+                    break
+
+                if ans == "q":
+                    sys.exit(0)
+                    return
+
+            try:
+                os.remove(dupe_file)
+                print(f"    deleted duplicate {str(dupe_file)}")
+            except PermissionError as e:
+                print(f"    cannot delete file {str(dupe_file)}, {e.args[1].lower()}")
+
+            return
+
     def find_new_path(self, file_path: Path, trial: int=0):
         """Recursively find new name for duplicate file if it already exists"""
 
@@ -159,11 +195,14 @@ def parse_args():
     parser.add_argument("-r", "-R", "--recursive", action="store_true", help="check source and target recursively")
     parser.add_argument("-s", "--shallow", action="store_true", help="compare only file names")
     parser.add_argument("-1", "--one", action="store_true", help="assume only one possible duplicate")
-    parser.add_argument("-a", "--action", choices=[DupeFinder.ACTION_LIST, DupeFinder.ACTION_MOVE], default=DupeFinder.ACTION_LIST, help="action to perform on duplicate files (default: list)")
+    parser.add_argument("-a", "--action", choices=[DupeFinder.ACTION_LIST, DupeFinder.ACTION_MOVE, DupeFinder.ACTION_DELETE], default=DupeFinder.ACTION_LIST, help="action to perform on duplicate files (default: list)")
 
     move_group = parser.add_argument_group("MOVE action")
     move_group.add_argument("--move", metavar="duplicates_dir", type=Path, help="directory to move duplicate files (forces --action move)")
     move_group.add_argument("--keep-tree", action="store_true", help="keep the same folder structure for duplicates in duplicates_dir as in the target")
+
+    delete_group = parser.add_argument_group("DELETE action")
+    delete_group.add_argument("--no-confirm", action="store_true", help="don't ask for any confirmation")
 
     args = parser.parse_args()
 
