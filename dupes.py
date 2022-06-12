@@ -6,11 +6,13 @@ __version__ = "0.1.0"
 
 import argparse
 import filecmp
+import math
 from pathlib import Path
 import pathlib
 import os
 import shutil
 import sys
+import time
 
 class DupesError(Exception):
     """Fatal program errors"""
@@ -37,6 +39,10 @@ class DupeFinder:
         self.target_files: 'list[Path]' = []
         self.dupe_files: 'list[Path]' = []
 
+        self.si, self.ti = (0, 0)
+        self.eta_check = time.time()
+        self.eta = "?"
+
         if self.args.action == DupeFinder.ACTION_MOVE:
             self.dupe_dir: Path = self.args.move
             try:
@@ -47,14 +53,16 @@ class DupeFinder:
         self.check_source_paths(self.source, False)
         self.check_target_paths(self.target, False)
 
-        for source in self.source_files:
-            print(f"Comparing {str(source)}")
-            for target in self.target_files:
+        for (self.si, source) in enumerate(self.source_files):
+            self.log(f"Comparing {str(source)}")
+            for (self.ti, target) in enumerate(self.target_files):
+
+                self.calculate_eta()
 
                 if not target.exists():
                     continue
 
-                print(f"  with {str(target)}")
+                self.log(f"  with {str(target)}")
 
                 if self.compare(source, target):
                     self.dupe_action(source, target)
@@ -64,6 +72,42 @@ class DupeFinder:
         if self.args.action == DupeFinder.ACTION_LIST:
             for dupe_file in self.dupe_files:
                 print(str(dupe_file))
+
+    def log(self, msg):
+        """Log current task to stdout"""
+
+        print(f"{self.get_progress()}{msg}")
+
+    def calculate_eta(self):
+        """Calculate ETA of finding all duplicates"""
+
+        files_count = len(self.source_files) * len(self.target_files)
+        current_file = (self.si * len(self.target_files) + self.ti + 1)
+
+        eta_sec = int((time.time() - self.eta_check) * (files_count - current_file))
+
+        eta_min = eta_sec // 60
+        eta_sec = eta_sec % 60
+
+        if eta_min > 99:
+            eta_min = 99
+            eta_sec = 99
+        else:
+            eta_min = eta_min if eta_min >= 10 else f"0{eta_min}"
+            eta_sec = eta_sec if eta_sec >= 10 else f"0{eta_sec}"
+
+        self.eta = f"{eta_min}:{eta_sec}"
+
+        self.eta_check = time.time()
+
+    def get_progress(self):
+        """Calculate, format and return progress of current task"""
+
+        files_count = len(self.source_files) * len(self.target_files)
+        current_file = (self.si * len(self.target_files) + self.ti + 1)
+        progress = math.floor(current_file / files_count * 10000) / 100
+
+        return f"[{progress:6.2f}%, ETA: {self.eta:5s}] "
 
     def check_source_paths(self, source: Path, recursive: bool=False):
         """Generate list of source files"""
@@ -76,7 +120,7 @@ class DupeFinder:
             else:
                 self.source_files.append(source)
         except PermissionError as e:
-            print(e)
+            self.log(e)
 
     def check_target_paths(self, target: Path, recursive: bool=False):
         """Generate list of target files"""
@@ -89,7 +133,7 @@ class DupeFinder:
             else:
                 self.target_files.append(target)
         except PermissionError as e:
-            print(e)
+            self.log(e)
 
     def compare(self, file1: Path, file2: Path):
         """Compare two files"""
@@ -104,7 +148,7 @@ class DupeFinder:
 
         if self.args.action == DupeFinder.ACTION_LIST:
             self.dupe_files.append(dupe_file)
-            print("    duplicate found")
+            self.log("    duplicate found")
             return
 
         if self.args.action == DupeFinder.ACTION_MOVE:
@@ -116,9 +160,9 @@ class DupeFinder:
 
             try:
                 shutil.move(dupe_file, new_path)
-                print(f"    moved duplicate to {str(new_path)}")
+                self.log(f"    moved duplicate to {str(new_path)}")
             except PermissionError as e:
-                print(f"    cannot move file {str(dupe_file)} to {str(new_path)}, {e.args[1].lower()}")
+                self.log(f"    cannot move file {str(dupe_file)} to {str(new_path)}, {e.args[1].lower()}")
 
             return
 
@@ -151,9 +195,9 @@ class DupeFinder:
 
             try:
                 os.remove(dupe_file)
-                print(f"    deleted duplicate {str(dupe_file)}")
+                self.log(f"    deleted duplicate {str(dupe_file)}")
             except PermissionError as e:
-                print(f"    cannot delete file {str(dupe_file)}, {e.args[1].lower()}")
+                self.log(f"    cannot delete file {str(dupe_file)}, {e.args[1].lower()}")
 
             return
 
