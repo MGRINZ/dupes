@@ -238,16 +238,17 @@ def main():
     df.start()
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Duplicate files checker")
+    parser = argparse.ArgumentParser(description="Duplicate files checker", add_help=False)
 
-    parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("source", type=Path, help="file or directory to be looked for")
     parser.add_argument("target", type=Path, help="file or directory to look for duplicates")
+    parser.add_argument("-a", "--action", choices=[DupeFinder.ACTION_LIST, DupeFinder.ACTION_MOVE, DupeFinder.ACTION_DELETE], default=DupeFinder.ACTION_LIST, help="action to perform on duplicate files (default: list)")
+    parser.add_argument("-1", "--one", action="store_true", help="assume only one possible duplicate")
     parser.add_argument("-r", "-R", "--recursive", action="store_true", help="check source and target recursively")
     parser.add_argument("-s", "--shallow", action="store_true", help="compare only file names")
-    parser.add_argument("-1", "--one", action="store_true", help="assume only one possible duplicate")
-    parser.add_argument("-a", "--action", choices=[DupeFinder.ACTION_LIST, DupeFinder.ACTION_MOVE, DupeFinder.ACTION_DELETE], default=DupeFinder.ACTION_LIST, help="action to perform on duplicate files (default: list)")
     parser.add_argument("-v", "--verbose", action="store_true", help="output what is being done")
+    parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument("-h", "--help", action="help", help="show this help message and exit")
 
     move_group = parser.add_argument_group("MOVE action")
     move_group.add_argument("--move", metavar="duplicates_dir", type=Path, help="directory to move duplicate files (forces --action move)")
