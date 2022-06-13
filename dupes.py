@@ -54,8 +54,12 @@ class DupeFinder:
         self.check_target_paths(self.target, False)
 
         for (self.si, source) in enumerate(self.source_files):
+            self.ti = 0
             self.log(f"Comparing {str(source)}")
             for (self.ti, target) in enumerate(self.target_files):
+
+                if not self.args.verbose:
+                    print(self.get_progress(), end="\r", file=sys.stderr)
 
                 self.calculate_eta()
 
@@ -76,7 +80,10 @@ class DupeFinder:
     def log(self, msg):
         """Log current task to stdout"""
 
-        print(f"{self.get_progress()}{msg}")
+        if not self.args.verbose:
+            return
+
+        print(f"[{self.get_progress()}] {msg}")
 
     def calculate_eta(self):
         """Calculate ETA of finding all duplicates"""
@@ -107,7 +114,7 @@ class DupeFinder:
         current_file = (self.si * len(self.target_files) + self.ti + 1)
         progress = math.floor(current_file / files_count * 10000) / 100
 
-        return f"[{progress:6.2f}%, ETA: {self.eta:5s}] "
+        return f"{progress:6.2f}%, ETA: {self.eta:5s} "
 
     def check_source_paths(self, source: Path, recursive: bool=False):
         """Generate list of source files"""
@@ -233,13 +240,14 @@ def main():
 def parse_args():
     parser = argparse.ArgumentParser(description="Duplicate files checker")
 
-    parser.add_argument("-v", "--version", action="version", version=__version__)
+    parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("source", type=Path, help="file or directory to be looked for")
     parser.add_argument("target", type=Path, help="file or directory to look for duplicates")
     parser.add_argument("-r", "-R", "--recursive", action="store_true", help="check source and target recursively")
     parser.add_argument("-s", "--shallow", action="store_true", help="compare only file names")
     parser.add_argument("-1", "--one", action="store_true", help="assume only one possible duplicate")
     parser.add_argument("-a", "--action", choices=[DupeFinder.ACTION_LIST, DupeFinder.ACTION_MOVE, DupeFinder.ACTION_DELETE], default=DupeFinder.ACTION_LIST, help="action to perform on duplicate files (default: list)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="output what is being done")
 
     move_group = parser.add_argument_group("MOVE action")
     move_group.add_argument("--move", metavar="duplicates_dir", type=Path, help="directory to move duplicate files (forces --action move)")
